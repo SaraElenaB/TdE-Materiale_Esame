@@ -113,3 +113,112 @@ for n1, n2 in itertools.combinations(self._nodes, 2):
     if peso:
         self._grafo.add_edge(n1, n2, weight=peso[0])
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-iTunes
+#GRAFO: semplice, non orientato e non pesato
+#NODI: ogg Album + aggiungo un info nella classe direttamente (dTotMin)
+#       album la cui durata (intesa come somma delle durate dei brani ad esso appartenenti) sia superiore a d
+query=""" select a.* , sum(t.Milliseconds)/1000/60 as dTotMin
+                  from track t , album a 
+                  where t.AlbumId = a.AlbumId
+                  group by AlbumId 
+                  having dTotMin >= %s"""
+                  #puoi farlo perchè fai la group by su una chiave primaria
+
+        cursor.execute(query, (dMin,))
+        for row in cursor:
+            ris.append( Album(**row)) #aggiungo direttamente alla classe
+
+#ARCHI:
+#       -collegati se una canzone a1 e una di a2 sono state inserite da un utente all’interno di  una stessa playlist
+#       -album diversi, canzoni diverse, playlist uguale
+#1:
+#distinc --> rende tutto lento!!
+        query = """ select distinct t1.AlbumId as a1, t2.AlbumId as a2
+                    from playlisttrack p1, playlisttrack p2, track t1, track t2
+                    where t1.TrackId = p1.TrackId
+                    and  t2.TrackId = p2.TrackId
+                    and p1.PlaylistId = p2.PlaylistId
+                    and t1.AlbumId < t2.AlbumId"""
+                    # <,> --> toglie i doppioni
+                    # distinct --> archi molteplici, stessa coppia in diverse playlist
+                    # ricordati di mettere solo nodi --> quindi la durata
+
+        cursor.execute(query,)
+        for row in cursor:
+            # altrimenti errore perchè nella query ho tutti i possibili archi
+            if row["a1"] in idMapAlbum and row["a2"] in idMapAlbum:
+                ris.append( (idMapAlbum[row["a1"]],
+                            idMapAlbum[row["a2"]]) )
+
+        #modello --> tutti gli archi insieme
+        self._allEdges = DAO.getAllEdges(self._idMapAlbum)
+        self._grafo.add_edges_from(self._allEdges)
+
+#2:
+query = """ select distinct p1.PlaylistId
+                    from playlisttrack p1, playlisttrack p2, track t1, track t2 
+                    where p1.TrackId = t1.TrackId
+                    and p2.TrackId = t2.TrackId
+                    and p1.PlaylistId = p2.PlaylistId
+                    and t1.AlbumId = %s
+                    and t2.AlbumId = %s
+                    group by p1.PlaylistId"""
+
+        cursor.execute(query, (a1, a2))
+        for row in cursor:
+            ris.append( row["PlaylistId"])
+
+        #modello --> iterando con 2 album alla volta
+        for a1, a2 in itertools.combinations(self._nodes, 2):
+            arco = DAO.getEdgeSingolo(a1.AlbumId, a2.AlbumId)
+            if len(arco)>0:
+                self._grafo.add_edge(a1, a2)
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-Gene_small
+#GRAFO: semplice, orientato, pesato
+#NODI: cromosomi (tabella genes) considerando solo i valori diversi da 0)
+query = """ select distinct g.Chromosome
+                 from genes g 
+                 where g.Chromosome > 0 """
+cursor.execute(query)
+        for row in cursor:
+            ris.append( row["Chromosome"])
+
+#ARCO: due c diversi, contengono due geni (uno per cromosoma) nello stesso ordine nella tab i.
+#       -#vincoli:
+#           1 C + geni
+# #         1 G + function
+#       -peso --> somma algebrica della correlazione
+query = """ select sum(a.pesoSingolo) as pesoTot
+                    from (select i.GeneID1 as gene1, i.GeneID2 as gene2, i.Expression_Corr as pesoSingolo
+                          from genes g1, genes g2, interactions i 
+                          where i.GeneID1 = g1.GeneID
+                          and i.GeneID2 = g2.GeneID
+                          and g1.Chromosome = %s
+                          and g2.Chromosome = %s
+                          group by gene1, gene2) as a"""
+                    #with distinctChromosomes as
+                    #      (SELECT g.Chromosome, g.GeneID
+                    #       FROM genes g
+                    #       WHERE g.Chromosome != 0)
+
+                    #       SELECT ds1.Chromosome as c1, ds2.Chromosome as c2, sum(DISTINCT i.Expression_Corr) as pesoTot
+                    #       FROM distinctChromosomes ds1, distinctChromosomes ds2, interactions i
+                    #       WHERE ds1.Chromosome != ds2.Chromosome
+                    #       and ds1.GeneID = i.GeneID1
+                    #       and ds2.GeneID = i.GeneID2
+                    #       group by ds1.c1, ds2.c2
+
+        cursor.execute(query, (c1, c2))
+        for row in cursor:
+            ris.append(row["pesoTot"])
+#modello
+for c1 in self._grafo.nodes:
+    for c2 in self._grafo.nodes:
+        if c1 != c2:  # tutte le possibilità
+            peso = DAO.getEdgeWeighted(c1, c2)
+            if peso is not None and peso[0] is not None:  # controlla solo quando ha senso: quindi c'è interazione
+                self._grafo.add_edge(c1, c2, weight=peso[0])
+return self._grafo

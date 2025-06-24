@@ -38,7 +38,7 @@ def getInfoVolumeVendita(self):
 #LAB13: Costruito il grafo, l’applicazione visualizza il pilota che ha totalizzato il miglior risultato, definito come
 # differenza tra il numero di vittorie (archi uscenti) e di sconfitte (entranti)
 # -grafo orientato -->succ e pre hanno senso
-    def getBestScore(self):
+def getBestScore(self):
 
         bestScore = 0
         bestPilota = None
@@ -63,7 +63,7 @@ def getInfoVolumeVendita(self):
 #“Analisi Componente”, si stampino:
 #   -la dimensione della componente connessa a cui appartiene a1;
 #   -la durata complessiva (in minuti) di tutti gli album appartenenti alla componente connessa di a1
-    def getInfoConnessa(self, a1):
+def getInfoConnessa(self, a1):
 
         #grafo NON orientato
         nodiConnessi = nx.node_connected_component(self._grafo, a1)
@@ -81,7 +81,7 @@ def getInfoVolumeVendita(self):
 #Si visualizzi i valori minimo e massimo dei pesi degli archi.
 # Permettere all’utente di inserire un valore soglia (S), verificando che tale valore sia compreso nell’intervallo minimo-massimo calcolato al punto d.
 #. Alla pressione del bottone “Conta archi” stampare il numero di archi il cui peso è <S, ed il numero di archi il cui peso è >S.
-    def getMinPeso(self):
+def getMinPeso(self):
 
         min=float('inf') #1000000000000000000000
         for edge in self._grafo.edges( data=True):
@@ -89,7 +89,7 @@ def getInfoVolumeVendita(self):
                 min = edge[2]["weight"]
         return min
 
-    def getMaxPeso(self):
+def getMaxPeso(self):
 
         max=float('-inf') #-100000000000000000
         for edge in self._grafo.edges( data=True):
@@ -98,7 +98,7 @@ def getInfoVolumeVendita(self):
         return max
 
     # ------------------------------------------------------------------------------------------------------------------------------------
-    def getArchiSoglia(self, soglia):
+def getArchiSoglia(self, soglia):
 
         if soglia > self.getMaxPeso() and soglia < self.getMinPeso():
             return f"Attenzione, valore della soglia non valido!"
@@ -114,9 +114,29 @@ def getInfoVolumeVendita(self):
 
         return numArchiMinoreSoglia, numArchiMaggioreSoglia
 
+def getMaxNodi(self):
+
+        lista = []    #lista= [ (nodo1, numUscenti) , (nodo2, numUscenti)]
+        nodiGiaVisti = []
+
+        for n in self._nodes:
+            if n not in nodiGiaVisti:
+                nodiGiaVisti.append(n)
+                numUscenti = 0
+                pesoTot = 0
+                for succ in self._grafo.successors(n):
+                    numUscenti += 1
+                    pesoTot += self._grafo[n][succ]['weight']
+                lista.append( (n, numUscenti, pesoTot ) )
+            else:
+                continue
+
+        lista.sort( key=lambda x: x[1], reverse=True)
+        return lista[:5]
+
 #TdE-Ufo: -------------------------------------------------------------------------------------------------------------------------------------------------
 #Stampare per ogni stato la somma dei pesi degli archi adiacenti.
-    def getPesiAdiacenti(self):
+def getPesiAdiacenti(self):
 
         lista=[]
         for nodo in self._grafo.nodes():
@@ -130,7 +150,7 @@ def getInfoVolumeVendita(self):
 #TdE-Baseball: -------------------------------------------------------------------------------------------------------------------------------------------------
 #tampare per tale squadra (scelta dal dd) l’elenco delle squadre adiacenti, ed il peso degli archi corrispondenti, in ordine decrescente di peso. Tali informazioni
 # dovranno essere stampate nella seconda area di testo (txtResult).
-    def getViciniOrdinati(self, source):
+def getViciniOrdinati(self, source):
         #vicini = self._grafo.neighbors(source)
         vicini = nx.neighbors(self._grafo, source) # [ v0, v1, v2 ...]
         viciniTuple=[]
@@ -154,3 +174,30 @@ def getPath(self, u, v):
         # while path[0] != u:
         #     path.insert(0, myDict[path[0]])
         return pathDijkstra
+
+#TdE-Metro Paris-------------------------------------------------------------------------------------------------------------------------------------------------------------
+def getArchiPesoMaggiore(self):
+
+    edges = self._grafo.edges(data=True) #data=True: dato che mi servono anche i pesi
+    ris=[]
+    for e in edges:
+        if self._grafo.get_edge_data(e[0], e[1])["weight"]>1:
+            ris.append(e)
+    print(ris)
+
+def addArchiPesatiTempi(self):
+        #Aggiunge archi con peso uguale al tempo di percorrenza dell'altro
+        #Con questo nuovo metodo andiamo a cambiare la componente peso, che diventa la velocita e non più 1 o 2
+        self._grafo.clear_edges()
+        allEdges= DAO.getAllEdgesVelocita() #facendo una group by so che gli archi ci sono
+        for e in allEdges:
+            u = self._idMapFermate[e[0]] #è una tupla
+            v = self._idMapFermate[e[1]]
+            peso = getTraversaTime(u, v, e[2])
+            self._grafo.add_edge(u,v,weight=peso)
+
+def getTraversaTime(u: Fermata, v: Fermata, velocita):
+
+    distanza = geopy.distance.distance((u.coordX, u.coordY), (v.coordX, v.coordY) ).km
+    time = distanza/velocita *60 #cosi ho i minuti
+    return time

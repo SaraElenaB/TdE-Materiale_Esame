@@ -223,6 +223,81 @@ for c1 in self._grafo.nodes:
                 self._grafo.add_edge(c1, c2, weight=peso[0])
 return self._grafo
 
+#TdE-Gene 2
+# GRAFO:  diretto e pesato
+self._genes = DAO.get_all_genes()
+self._idMapGenes = {} #{'idGene1': [g1, g2], 'idGene2': [g4, g1], 'key3': []} #= gene, diverse funzioni
+    for gene in self._genes:
+        if gene.GeneID in self._idMapGenes.keys():
+            self._idMapGenes[gene.GeneID].append(gene)
+        else:
+            self._idMapGenes[gene.GeneID] = [gene]
+
+self._interaction = DAO.get_all_interactions()
+# NODI: geni (tabella genes, unica con info Chromosoma) sia tale che Chromosoma min <= Chromosoma <= Chromosoma max (dati)
+cursor = cnx.cursor(dictionary=True)
+            query = """ SELECT GeneID
+                        FROM genes
+                        WHERE Chromosome >= %s 
+                        AND Chromosome <= %s"""
+            cursor.execute(query, (c1, c2))
+
+            for row in cursor:
+                id_gene = row["GeneID"]
+                if id_gene in idMapGenes:
+                    result.extend(idMapGenes[id_gene])  #aggiunge gli elementi della lista singolarmente
+                    #ti serve salvare singolarmente oggetti Gene, non liste perchè altrimenti nx non riesce ad aggiungere
+                    #in quanto sono liste e non oggetti hashable
+# ARCHI: geni diversi, stessa Localizzazione (classification), esiste una interazione tra di loro (Interactions)
+# PESO: indice di correlazione dell’interazione fra i due geni (tabella interactions)
+# VERSO: uscente dal gene con Cromosoma min ed entrante nel gene con Cromosoma maggiore. stesso cromosoma va gestito aggiungendo entrambi gli archi
+query = """ select i.Expression_Corr as peso
+                        from interactions i, classification c1, classification c2
+                        where i.GeneID1 = %s
+                        and i.GeneID2 = %s
+                        and c1.GeneID = i.GeneID1
+                        and c2.GeneID = i.GeneID2
+                        and c1.Localization = c2.Localization"""
+            cursor.execute(query, (g1Id, g2Id))
+
+            for row in cursor:
+                result.append(row["peso"])
+
+#modello
+def buildGraph(self, c1, c2):
+    self._grafo.clear()
+    self._nodes = DAO.getAllNodes(c1, c2, self._idMapGenes)
+    print(len(self._nodes))
+    self._grafo.add_nodes_from(self._nodes)
+
+    mapNodi = {}
+    for g in self._nodes:
+        geneId = g.GeneID
+        if geneId not in mapNodi:
+            mapNodi[g.GeneID] = [g]
+        else:
+            mapNodi[g.GeneID].append(g)
+
+    for inter in self._interaction:
+        gene1 = mapNodi.get(inter.GeneID1)
+        gene2 = mapNodi.get(inter.GeneID2)
+
+        if gene1 is not None and gene2 is not None:
+            peso = DAO.getEdgeWeight(inter.GeneID1, inter.GeneID2)
+            if peso is not None and len(peso) > 0:
+                for g1 in gene1:
+                    for g2 in gene2:
+                        if g1.GeneID != g2.GeneID:
+                            if g1.Chromosome < g2.Chromosome:
+                                self._grafo.add_edge(g1, g2, weight=peso[0])
+                            elif g1.Chromosome > g2.Chromosome:
+                                self._grafo.add_edge(g2, g1, weight=peso[0])
+                            elif g1.Chromosome == g2.Chromosome:
+                                self._grafo.add_edge(g1, g2, weight=peso[0])
+                                self._grafo.add_edge(g2, g1, weight=peso[0])
+
+    return self._grafo
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------
 #TdE-Ufo
 #GRAFO: semplice, NON orientato, pesato
@@ -259,6 +334,43 @@ for t in DAO.getAllEdgesWeightMio(anno, shape):
 
     if peso > 0:
         self._grafo.add_edge(stato1, stato2, weight=peso)
+
+#TdE-Ufo 2
+#GRAFO: orientato e pesato
+#NODI: avvistamenti (sighting) nell’anno selezionato e forma
+        query = """SELECT *
+                   FROM sighting s 
+                   WHERE Year(s.datetime)=%s AND s.shape =%s
+                   ORDER BY s.longitude ASC"""
+        cursor.execute(query, (year, shape,))
+
+        for row in cursor:
+            result.append(Sighting(**row))
+
+#ARCO: stesso stato, uscente dall’avvistamento che è avvenuto in una località con Longitudine minore ed entrante nella località a Longitudine maggiore
+#PESO: differenza in Longitudine tra nodo di arrivo e nodo di partenza.
+#       -Esempio. Se nodo A ha Longitudine -123.0 e nodo B ha longitudine -47 l’eventuale arco sarà diretto da A verso B ed avrà peso 76
+        cursor = conn.cursor(dictionary=True)
+        query = """select t1.id as id1, abs(t1.longitude) as l1, t2.id as id2, abs(t2.longitude) as d2
+                            from (select * from sighting s where YEAR(`datetime`) = %s and shape = %s) t1 ,
+                            (select * from sighting s where YEAR(`datetime`) = %s and shape = %s) t2
+                            where t1.state = t2.state and abs(t1.longitude) < abs(t2.longitude)
+                            order by t1.longitude, t2.longitude"""
+
+        cursor.execute(query, (year, shape, year, shape))
+
+        for row in cursor:
+            result.append((idMap[row['id1']], idMap[row['id2']]))
+#modello
+        # calcolo degli edges in modo programmatico
+        for i in range(0, len(self._nodes) - 1):
+            for j in range(i + 1, len(self._nodes)):
+                if self._nodes[i].state == self._nodes[j].state and self._nodes[i].longitude < self._nodes[j].longitude:
+                    weight = self._nodes[j].longitude - self._nodes[i].longitude
+                    self._grafo.add_edge(self._nodes[i], self._nodes[j], weight=weight)
+                elif self._nodes[i].state == self._nodes[j].state and self._nodes[i].longitude > self._nodes[j].longitude:
+                    weight = self._nodes[i].longitude - self._nodes[j].longitude
+                    self._grafo.add_edge(self._nodes[j], self._nodes[i], weight=weight)
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------
 #TdE-baseball (30/06/23)
@@ -395,4 +507,47 @@ class Arco:
                 else:
                     self._grafo.add_edge( e.aeroportoP, e.aeroportoA, weight=e.peso )
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-Artimisia --> ARCO!!!!!
+#GRAFO: semplice, NON orientato, pesato
+#NODI: tutti gli ogg
+#ARCHI: 2 ogg contemporaneamente esposti
+        # PESO: num di esposizioni contemporaneamente
+
+        query = """select eo.object_id as o1, eo2.object_id as o2, count(*) as peso
+                   from exhibition_objects eo , exhibition_objects eo2 
+                   where eo.exhibition_id = eo2.exhibition_id
+                   and eo.object_id < eo2.object_id 
+                   group by eo.object_id, eo2.object_id
+                   order by peso desc"""
+                   #in questo modo diminuisco la complessità, necessito di rinominare i select perchè li devo usare
+
+        cursor.execute(query, )
+
+        for row in cursor:
+            ris.append( Arco( idMap[row["o1"]],
+                              idMap[row["o2"]],
+                              row["peso"]))
+
+        cursor.close()
+        conn.close()
+
+        if len(ris) == 0:
+            return None
+        return ris
+
+#modello
+    def addAllEdges2(self):
+
+        allEdges = DAO.getAllArchi(self._idMap)
+        for e in allEdges:
+            self._graph.add_edge( e.o1, e.o2, weight=e.peso)
+
+    def addEdges1(self): #se i nodi sono pochi può convenire
+        #doppio ciclo
+        for u in self._nodes:
+            for v in self._nodes:
+                peso = DAO.getPeso(u,v)
+                if peso is not None:
+                    self._graph.add_edge(u, v, weight=peso)
 

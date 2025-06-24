@@ -28,6 +28,7 @@ order by all_airport.id"""
 
 #---------------------------------------------------------------------------------------------------------------------------------
 # "<" --> per togliere i doppioni
+# group by --> per evitare di avere archi uguali
 # "COALESCE(t1.numVoli, 0) + COALESCE(t2.numVoli, 0)" -->  funzione che restituisce il primo valore non NULL
 
 

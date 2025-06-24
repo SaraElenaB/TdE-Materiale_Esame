@@ -113,3 +113,44 @@ def getInfoVolumeVendita(self):
                 numArchiMaggioreSoglia += 1
 
         return numArchiMinoreSoglia, numArchiMaggioreSoglia
+
+#TdE-Ufo: -------------------------------------------------------------------------------------------------------------------------------------------------
+#Stampare per ogni stato la somma dei pesi degli archi adiacenti.
+    def getPesiAdiacenti(self):
+
+        lista=[]
+        for nodo in self._grafo.nodes():
+            pesoTot = 0
+            for vicino in self._grafo.neighbors(nodo):
+                pesoTot += self._grafo[nodo][vicino]['weight']
+            lista.append( (nodo, pesoTot) )
+
+        return lista
+
+#TdE-Baseball: -------------------------------------------------------------------------------------------------------------------------------------------------
+#tampare per tale squadra (scelta dal dd) l’elenco delle squadre adiacenti, ed il peso degli archi corrispondenti, in ordine decrescente di peso. Tali informazioni
+# dovranno essere stampate nella seconda area di testo (txtResult).
+    def getViciniOrdinati(self, source):
+        #vicini = self._grafo.neighbors(source)
+        vicini = nx.neighbors(self._grafo, source) # [ v0, v1, v2 ...]
+        viciniTuple=[]
+
+        for v in vicini:
+            viciniTuple.append( (v, self._grafo[source][v]["weight"] ) )  #[ (v0,p0) , (v1,p1) , ....]
+
+        viciniTuple = sorted( viciniTuple, key=lambda x: x[1], reverse=True)
+        return viciniTuple
+
+#TdE-Flight_Delays: -------------------------------------------------------------------------------------------------------------------------------------------------
+#Permettere all’utente di selezionare, da un menu a tendina, uno degli aeroporti presenti nel grafo (a1).
+#“Test connessione” -->verificare se è possibile raggiungere a2 da a1, e se si stampa un possibile percorso
+
+def getPath(self, u, v):
+        pathDijkstra = nx.dijkstra_path(self._grafo, u, v, weight=None)  #cosi trova il cammino con il num inferiore di archi
+        pathMinimo = nx.shortest_path(self._grafo, u, v, weight=None)    #implementa o dijkstra o bellanford
+
+        # myDict = dict(nx.bfs_predecessors(self._grafo, u) )
+        # path=[v]
+        # while path[0] != u:
+        #     path.insert(0, myDict[path[0]])
+        return pathDijkstra

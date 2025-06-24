@@ -217,8 +217,182 @@ query = """ select sum(a.pesoSingolo) as pesoTot
 #modello
 for c1 in self._grafo.nodes:
     for c2 in self._grafo.nodes:
-        if c1 != c2:  # tutte le possibilità
+        if c1 != c2 and not self._grafo.has_edge(n1, n2):  # tutte le possibilità
             peso = DAO.getEdgeWeighted(c1, c2)
             if peso is not None and peso[0] is not None:  # controlla solo quando ha senso: quindi c'è interazione
                 self._grafo.add_edge(c1, c2, weight=peso[0])
 return self._grafo
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-Ufo
+#GRAFO: semplice, NON orientato, pesato
+#NODI: tutti gli stati presenti nella tabella “state”.
+query = """ select *
+                    from state s  """
+
+        cursor.execute(query)
+        for row in cursor:
+            ris.append( State(**row))
+
+#ARCO: collega due stati solo se sono confinanti
+#       -peso: calcolato come il numero di avvistamenti che hanno la stessa forma e stesso anno
+query = """ SELECT n.state1, n.state2 , count(*) as peso
+                    FROM sighting s , neighbor n 
+                    where year(s.`datetime`) = %s
+                    and s.shape = %s
+                    and (s.state = n.state1 or s.state = n.state2 )
+                    and n.state1 < n.state2
+                    group by n.state1 , n.state2 """
+
+
+        cursor.execute(query, ( anno, shape ))
+        for row in cursor:
+            ris.append( ( row["state1"],
+                          row["state2"],
+                          row["peso"] ))
+
+#modello
+for t in DAO.getAllEdgesWeightMio(anno, shape):
+    stato1 = self._idMapStates[t[0]]
+    stato2 = self._idMapStates[t[1]]
+    peso = t[2]
+
+    if peso > 0:
+        self._grafo.add_edge(stato1, stato2, weight=peso)
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-baseball (30/06/23)
+    def getPlayerPerYear(nomeSquadra, year):
+        query = """ select distinct a.playerID
+                    from appearances a , teams t 
+                    where t.name = %s
+                    and t.teamCode = a.teamCode
+                    and a.`year` = %s"""
+        #SELECT a.year, GROUP_CONCAT(DISTINCT a.playerID ORDER BY a.playerID) AS players
+        # FROM appearances a
+        # JOIN teams t ON a.teamCode = t.teamCode
+        # WHERE t.name = 'Baltimore Orioles'
+        # GROUP BY a.year
+        # ORDER BY a.year
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-baseball 7/11/2023
+# dd --> anno di campionato, a partire dal 1980
+# text1 --> stampare il numero di squadre che ha giocato in tale anno, e l’elenco delle rispettive sigle, completa il dd
+# GRAFO: completo, NON ordinato, pesato
+# NODI: le squadre di cui al punto precedente
+query = """ select *
+                    from teams t
+                    where t.`year` = %s"""
+        cursor.execute(query, (anno,))
+
+        for row in cursor:
+            ris.append( Teams(**row))
+# ARCHI: colleghino tutte le coppie distinte di squadre.
+# PESO: corrisponde alla somma dei salari dei giocatori delle due squadre nell’anno considerato.
+ris = {}
+        cursor = conn.cursor(dictionary=True)
+
+        query = """ select t.teamCode, t.ID sum(s.salary) as salarioTotSquadra
+                    from salaries s , appearances a , teams t 
+                    where s.`year` = 2015
+                    and s.`year` = a.`year`
+                    and s.`year` = t.`year`
+                    and a.teamID = t.ID
+                    and a.playerID = s.playerID
+                    group by t.teamCode, t.name"""
+        cursor.execute(query, (anno,))
+        # essenzialmente devo collegare Salary e Teams e lo faccio tramite Appearances -->
+        # prendi i dati dalle tabelle che hanno sicuramente tutti i valori!!!
+
+        for row in cursor:
+            ris[idMapSalari[row["ID"]]] = row["salarioTotSquadra"]
+
+#modello
+for n in self._nodes:
+    self._idMapSquadreEffettive[n.ID] = n
+
+#ho fatto una mappa come ris del DAO --> { IdSquadra1: salario, IdSquadra2: salario}
+        # peso --> somma salario s1 e s2
+        salarioDelleSquadre = DAO.getSalarioGiocatoriSquadra(anno, self._idMapSquadreEffettive)
+        for e in self._grafo.edges:
+            self._grafo[e[0]][e[1]]["weight"] = salarioDelleSquadre[e[0]] + salarioDelleSquadre[e[1]]
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-Flight_Delays 2/07/2018
+# GRAFO: semplice, non orientato e pesato
+cursor = conn.cursor(dictionary=True)
+
+        query = """SELECT * 
+                    from airports a 
+                    order by a.AIRPORT asc"""
+        cursor.execute(query)
+
+        for row in cursor:
+            result.append(Airport(**row))
+
+#modello--> nell'init
+self._idMapAirports={}
+        for a in self._airports:
+            self._idMapAirports[a.ID]=a
+# NODI: aeroporti su cui operano almeno x compagnie aeree (in arrivo o in partenza)
+#1
+query = """select t.ID, t.IATA_CODE, count(*) as numCompagnie
+                   from (select a.ID, a.IATA_CODE, f.AIRLINE_ID, count(*) as numVoli
+                         from airports a , flights f 
+                         where a.ID = f.ORIGIN_AIRPORT_ID or a.ID = f.DESTINATION_AIRPORT_ID
+                         group by a.ID, a.IATA_CODE, f.AIRLINE_ID) as t
+                   group by t.ID, t.IATA_CODE
+                   having numCompagnie>=%s
+                   order by numCompagnie asc"""
+cursor.execute(query, (minCompagnie,))
+        for row in cursor:
+            result.append(idMapAirports[row["ID"]])
+
+#2
+query=""" select all_airport.id, count(distinct all_airport.airline_id) as numCompagnie
+          from (select f.ORIGIN_AIRPORT_ID as id, f.AIRLINE_ID
+		        from flights f 
+		        group by f.ORIGIN_AIRPORT_ID , f.AIRLINE_ID
+                union 
+                select f.DESTINATION_AIRPORT_ID as id, f.AIRLINE_ID
+                from flights f 
+                group by f.DESTINATION_AIRPORT_ID , f.AIRLINE_ID) as all_airport
+        group by all_airport.id
+        having numCompagnie >= %
+        order by all_airport.id"""
+
+# ARCHI:  rotte tra gli aeroporti collegati tra di loro da almeno un volo.
+# PESO: numero totale di voli tra i due aeroporti (poiché il grafo non è orientato, considerare tutti i voli in entrambe le direzioni: A->B e B->A)
+query = """ select f.ORIGIN_AIRPORT_ID, f.DESTINATION_AIRPORT_ID, count(*) as numVoli
+                    from flights f 
+                    group by f.ORIGIN_AIRPORT_ID, f.DESTINATION_AIRPORT_ID
+                    order by f.ORIGIN_AIRPORT_ID, f.DESTINATION_AIRPORT_ID """
+for row in cursor:
+    # result.append(idMapAirports[row["ORIGIN_AIRPORT_ID"]],
+    #               idMapAirports[row["DESTINATION_AIRPORT_ID"]],
+    #               row["numVoli"] )
+    result.append(Arco(idMapAirports[row["ORIGIN_AIRPORT_ID"]],
+                       idMapAirports[row["DESTINATION_AIRPORT_ID"]],
+                       row["numVoli"]))
+
+#arco
+@dataclass
+class Arco:
+    aeroportoP: Airport
+    aeroportoA: Airport
+    peso: int
+
+#modello
+    def addAllArchiPython(self):
+        # DAO --> prende tutto
+        allEdges= DAO.getAllEdgesPython(self._idMapAirports)
+        for e in allEdges:
+            if e.aeroportoP in self._grafo and e.aeroportoA in self._grafo: #devo filtrare e aggiungere archi solo dove i nodi ci sono
+                if self._grafo.has_edge(e.aeroportoP, e.aeroportoA):
+                    self._grafo[e.aeroportoP][e.aeroportoA]["weight"] += e.peso  #se c'è già sommo il peso
+                else:
+                    self._grafo.add_edge( e.aeroportoP, e.aeroportoA, weight=e.peso )
+
+

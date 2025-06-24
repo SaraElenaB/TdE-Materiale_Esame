@@ -1,5 +1,6 @@
 #TdE-Gene_small
-#a. determinare il più lungo cammino di vertici (cromosomi) che sia composto esclusivamente da archi di peso >S. La lunghezza del cammino sarà valutata dalla somma dei pesi degli archi incontrati.
+#a. determinare il più lungo cammino di vertici (cromosomi) che sia composto esclusivamente da archi di peso >S.
+# La lunghezza del cammino sarà valutata dalla somma dei pesi degli archi incontrati.
 #b. Si stampi la sequenza di cromosomi di lunghezza massima così ottenuta.
 def getCamminoOttimo(self, soglia):
     self._bestPath = []

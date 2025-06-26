@@ -43,3 +43,8 @@ def handleCreaGrafo(self, e):
         self._view._btnDettagli.disabled = False
         self._view._btnPercorso.disabled = False
         self._view.update_page()
+
+#aggiungi archi
+#Graph()
+edges = DAO.getAllEdges(anno, self._idMapCountries)
+        self._graph.add_edges_from(edges)

@@ -1,3 +1,5 @@
+#LINK: https://networkx.org/documentation/stable/reference/algorithms/traversal.html
+
 #dijkstra_path            (G, DiG)
 #       -Restituisce il cammino più breve (come lista di nodi) dal nodo source al nodo target nel grafo G, usando l’algoritmo di Dijkstra
 #       -richiede entrambi i nodi (source e target).
@@ -50,6 +52,9 @@ def getInfoConnessa(self, idInt):
     conn = nx.node_connected_component(self._graph, source)
     print(f"Size componente connessa modo 4: {len(conn)} ")
 
+    #Modo 5: numero (NON orientato)
+    def getNumComponentiConnesse(self):
+        return nx.number_connected_components(self._graph)
     return len(conn)
 
 #Metro-Paris--------------------------------------------------------------------------------------------------------------------------------
@@ -94,3 +99,75 @@ def getInfoConnessa(self, idInt):
             ris.append(nodoArrivo)
         return ris
         #return --> lista dei nodi figli visitati
+
+#Vari modi per verificare la connettività (Lab10)
+    #1° NetworkX --> già pronto
+    def getStatiRaggiungibili1(self, stato):
+        return list(nx.node_connected_component( self._graph, stato))
+
+    #2° DFS o BFS
+    def getNodiRaggiungibiliDFS(self, statoSource):
+
+        alberoStatiRaggiungibili = nx.dfs_tree(self._graph, statoSource) #GRAFO ORIENTATO
+        statiRaggiungibili= alberoStatiRaggiungibili.nodes()
+        return statiRaggiungibili
+
+    #3° ITERATIVO
+    def getNodiRaggiungibiliIterativo(self, statoSource):
+
+        from collections import deque
+
+        daVisitare = deque()            #lista: permette di aggiungere e rimuovere elementi da entrambi gli estremi in modo efficiente
+        visitati = []
+
+        visitati.append(statoSource)    #aggiunto il nodo iniziale nella lista di quelli visitati
+        daVisitare.extend(self._graph.neighbors(statoSource))
+
+        while len(daVisitare) > 0:
+            ultimo = daVisitare.popleft()                 #prendi l'ultimo nodo inserito
+            visitati.append(ultimo)
+
+            vicini = list(self._graph.neighbors(ultimo))  #vicini di questo nodo
+
+            #Remove from this list the elements that are already in "visitati" e "daVisitare"
+            vicini_filtrati= []
+
+            for vicino in vicini:
+                if vicino not in visitati:
+                    vicini_filtrati.append(vicino)
+                elif vicino not in daVisitare:
+                    vicini_filtrati.append(vicino)
+
+            # Add the remaining to the queue of those to be visited
+            daVisitare.extend(vicini_filtrati)
+
+        visitati.remove(statoSource)
+        return visitati
+
+            # nodo=daVisitare.pop()
+            # if nodo not in visitati:    #se non l'hai già visitato allora aggiungilo alla lista
+            #     visitati.append(nodo)
+            #     for vicino in self._graph.neighbors(nodo): #per ogni vicino del nodo, aggiungilo alla lista DAvisitare se già non c'è
+            #         if vicino not in visitati:
+            #             daVisitare.append(vicino)
+            # visitati.remove(nodo)
+
+
+        return visitati
+
+    #4° RICORSIVO
+    def getNodiRaggiungibiliRicorsivo(self, statoSource):
+
+        visitati=[]
+        self._ricorsivo(statoSource, visitati)
+        visitati.remove(statoSource)
+        return visitati
+
+    def _ricorsivo(self, statoSource, visitati):
+
+        visitati.append(statoSource)
+        #Iterare su tutti i vicini dello stato
+        for stato in self._graph.neighbors(statoSource):
+            #FILTRO: visita n solo se non è già stato visitato ancora
+            if stato not in visitati:
+                self._ricorsivo(stato, visitati)

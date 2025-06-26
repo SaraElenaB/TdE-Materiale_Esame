@@ -1,4 +1,5 @@
 #Lab13
+#Grafo orientato pesato
 #NODI: Piloti arrivati al traguardo
 query = """ select distinct r.driverId
                     from results r , races r2 
@@ -46,6 +47,7 @@ query = """ select *
         cursor.execute(query, (storeId, ))
         for row in cursor:
             ris.append(Order(**row))
+
 #ARCHI: collega ordini effettuati in un massimo di K giorni.
 #        numMax giorni --> utente
 #        peso --> somma degli oggetti comprati nei due ordini collegati
@@ -84,11 +86,32 @@ def buildGraph(self, storeId, intNumGiorniMax):
 
     return self._grafo
 
+#modo 2
+query = """Select DISTINCT o1.order_id as id1, o2.order_id as id2, count(oi.quantity+ oi2.quantity) as cnt
+                from orders o1, orders o2, order_items oi, order_items oi2 
+                where o1.store_id=%s
+                and o1.store_id=o2.store_id 
+                and o1.order_date > o2.order_date
+                and oi.order_id = o1.order_id
+                and oi2.order_id  = o2.order_id
+                and DATEDIFF(o1.order_Date, o2.order_date) < %s
+                group by o1.order_id, o2.order_id	"""
+
+        cursor.execute(query, (store,k))
+
+        for row in cursor:
+            results.append((idMap[row["id1"]],idMap[row["id2"]], row["cnt"]))
+
+#modello
+allEdges = DAO.getEdges(store, k, self._idMap)
+for e in allEdges:
+     self._graph.add_edge(e[0], e[1], weight=e[2])
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------
 #Lab12
-#a. utente seleziona --> nazione, anno A, tra il 2015 ed il 2018
-#grafo semplice, non orientato e pesato
+#GRAFO: semplice, non orientato e pesato
 #NODI: tutti retailer presenti nel database
+#a. utente seleziona --> nazione, anno A, tra il 2015 ed il 2018
 query = """ select *
                     from go_retailers gr 
                     where gr.Country = %s """
@@ -551,3 +574,18 @@ class Arco:
                 if peso is not None:
                     self._graph.add_edge(u, v, weight=peso)
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------
+#TdE-Nyc_hotspot
+# GRAFI: semplice, pesato, e NON orientato
+# NODI: località l distinte (colonna Location) in cui opera il provider p
+query = """select n.Location, avg(n.Latitude) as Latitude, avg(n.Longitude) as Longitude
+                    from nyc_wifi_hotspot_locations n
+                    where n.Provider = %s
+                    group by n.Location """
+
+        cursor.execute(query, (provider,))
+        for row in cursor:
+            ris.append( Location(**row) )
+# ARCHI:  l1 e l2  collegate da un arco se la distanza tra le due località è minore o uguale alla soglia x (utente)
+#       -distanza -->  libreria geopy, considerando, media delle latitudini e longitudini degli hotspot
+# PESO: distanza tra le due località.

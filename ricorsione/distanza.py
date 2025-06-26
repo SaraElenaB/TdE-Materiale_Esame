@@ -5,6 +5,9 @@ a. Alla pressione del bottone “Calcola percorso” avviare l’algoritmo di ri
 b. Stampare a video il percorso con peso di ogni arco e distanza geodesica tra i due stati
 c. Hint: Per il calcolo della massima distanza tra stati usare i campi “lat” e “lng” del db
 
+import geopy
+from geopy import distance
+
 def buildGraph(self):
     # Per il punto 2:
     for e in self._grafo.edges(data=True):

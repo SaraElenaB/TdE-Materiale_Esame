@@ -201,3 +201,11 @@ def getTraversaTime(u: Fermata, v: Fermata, velocita):
     distanza = geopy.distance.distance((u.coordX, u.coordY), (v.coordX, v.coordY) ).km
     time = distanza/velocita *60 #cosi ho i minuti
     return time
+
+#Lab10
+def getGradiVertici(self):
+        gradi = {}
+        for nodo in self._graph.nodes:
+            grado = self._graph.degree(nodo)
+            gradi[nodo] = grado
+        return gradi

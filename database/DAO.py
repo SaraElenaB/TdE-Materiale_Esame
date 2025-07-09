@@ -87,20 +87,23 @@ def buildGraph(self, storeId, intNumGiorniMax):
     return self._grafo
 
 #modo 2
-query = """Select DISTINCT o1.order_id as id1, o2.order_id as id2, count(oi.quantity+ oi2.quantity) as cnt
-                from orders o1, orders o2, order_items oi, order_items oi2 
-                where o1.store_id=%s
-                and o1.store_id=o2.store_id 
-                and o1.order_date > o2.order_date
-                and oi.order_id = o1.order_id
-                and oi2.order_id  = o2.order_id
-                and DATEDIFF(o1.order_Date, o2.order_date) < %s
-                group by o1.order_id, o2.order_id	"""
+query = """ select o1.order_id as o1, o2.order_id as o2, sum(oi1.quantity + oi2.quantity) as peso
+                    from orders o1, orders o2, order_items oi1, order_items oi2
+                    where o1.store_id = %s
+                    and o2.store_id = %s
+                    and o1.order_id != o2.order_id
+                    and o1.order_id = oi1.order_id
+                    and o2.order_id = oi2.order_id
+                    and o1.order_date > o2.order_date
+                    and DATEDIFF(o1.order_date, o2.order_date) < %s
+                    group by o1.order_id, o2.order_id"""
 
-        cursor.execute(query, (store,k))
-
+        cursor.execute(query, (s1, s1, numGiori))
         for row in cursor:
-            results.append((idMap[row["id1"]],idMap[row["id2"]], row["cnt"]))
+            #if row["o1"] in map.keys() and row["o2"] in map.keys():
+            #if map[row["o1"]] in map.values() and map[row["o2"]] in map.values():
+            if row["o1"] in map and row["o2"] in map:
+                ris.append( (map[row["o1"]] , map[row["o2"]] , row["peso"])  )
 
 #modello
 allEdges = DAO.getEdges(store, k, self._idMap)
@@ -589,3 +592,57 @@ query = """select n.Location, avg(n.Latitude) as Latitude, avg(n.Longitude) as L
 # ARCHI:  l1 e l2  collegate da un arco se la distanza tra le due località è minore o uguale alla soglia x (utente)
 #       -distanza -->  libreria geopy, considerando, media delle latitudini e longitudini degli hotspot
 # PESO: distanza tra le due località.
+
+
+#ESAME MERDA 26/06/25
+# piazzamenti
+for n in self._nodes:
+    print("Nodo:", n)
+    for i in range(a1, a2):
+        print("Anno:", i)
+        lista = DAO.getPiazzamenti(n.circuitId, i)
+        if len(lista) > 0 and lista is not None:
+            for tupla in lista:
+                if i not in n.piazzamenti.keys():
+                    n.piazzamenti[i] = []
+                    n.piazzamenti[i].append(Piazzamento(tupla[0], tupla[1]))
+
+# archi
+for n1, n2 in itertools.combinations(self._nodes, 2):
+    peso = self._calcolaPeso(n1, n2, a1, a2)
+    if peso > 0:
+        self._grafo.add_edge(n1, n2, weight=peso)
+
+# ---------------------------------------------
+# modo 2 per nodi e piazzamento
+self._mapNodes = {}
+for n in self._nodes:
+    self._mapNodes[n.circuitId] = n
+    self._addRisultati(n, a1, a2)
+self._graph.add_nodes_from(self._nodes)
+
+
+def _addRisultati(self, nodo: Circuit, year1, year2):
+    risultatiCircuito = DAO.getRisultatiCircuito(nodo.circuitId, year1, year2)
+    for row in risultatiCircuito:
+        if row[0] not in nodo.risultati.keys():
+            nodo.risultati[row[0]] = [row[1]]
+        else:
+            nodo.risultati[row[0]].append(row[1])
+
+
+def _calcolaPeso(self, n1, n2, a1, a2):
+    peso = 0
+    if len(n1.piazzamenti.values()) == 0 or len(n2.piazzamenti.values()) == 0:
+        return peso
+
+    for piazz in n1.piazzamenti.values():
+        for pilota in piazz:
+            peso += 1
+
+    for piazz in n2.piazzamenti.values():
+        for pilota in piazz:
+            peso += 1
+
+    return peso
+

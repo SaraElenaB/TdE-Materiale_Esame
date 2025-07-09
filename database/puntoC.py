@@ -134,6 +134,34 @@ def getMaxNodi(self):
         lista.sort( key=lambda x: x[1], reverse=True)
         return lista[:5]
 
+#MODO2
+def getMaxNodi(self):
+    dic={}
+    for n in self._grafo.nodes:
+        gradoUscente = self._grafo.out_degree(n)
+        dic[n] = gradoUscente
+
+    dicSorted = sorted( dic.items(), key=lambda x: x[1], reverse=True)
+    ris=[]
+    for n, gradoUscente in dicSorted[:5]:
+        pesoTot = 0
+        for e in self._grafo.edges(n, data=True):
+            pesoTot += e[2]["weight"]
+
+        ris.append( (n, gradoUscente, pesoTot ) )
+    return ris
+
+ def getMaxArchi(self):
+
+    lista = []
+    for e in self._grafo.edges(self._grafo):
+        peso = e[2]["weight"]
+        lista.append( (e[0], e[1], peso) )
+
+    lista.sort( key=lambda x: x[2], reverse=True)
+    return lista
+
+
 #TdE-Ufo: -------------------------------------------------------------------------------------------------------------------------------------------------
 #Stampare per ogni stato la somma dei pesi degli archi adiacenti.
 def getPesiAdiacenti(self):
@@ -209,3 +237,46 @@ def getGradiVertici(self):
             grado = self._graph.degree(nodo)
             gradi[nodo] = grado
         return gradi
+
+
+#GENNAIO 25
+#Prendi tutte le connesse in ordine di numComponenti decrescente e riporta tutti i suoi nodi
+
+#modello
+def getAnalisiGrafo(self):
+    cc = nx.connected_components(self._grafo)
+    ccSorted = sorted( cc, key=lambda x: len(x), reverse=True)
+    return ccSorted
+
+#controller
+def analyze_graph(self, e):
+
+    connesse = self._model.getAnalisiGrafo()
+    self._view.txt_result.controls.append(ft.Text(f"Le componenti connesse sono:"))
+
+    for c in connesse:
+        if len(c) > 1:
+            nodi = ""
+            for n in list(c):
+                nodi += f"{n.GeneID}, "
+            self._view.txt_result.controls.append(ft.Text(f"{nodi} | dimensione componente= {len(c)}"))
+    self._view.update_page()
+
+
+#GIUGNO 25
+#Prendi connessa maggiare e riporta tutti i suoi nodi in modo decrescente
+def getStampaDettagli(self):
+
+        cc = list(nx.connected_components(self._grafo))
+        cc.sort( key=lambda x: len(x), reverse=True )
+        ccMaggiore = cc[0]
+
+        listaNodi=[]
+        for n in ccMaggiore: #cc --> dict ogg circuito {Circuit(circuitId=1, piazzamenti={2010: [Piazzamento(driverId=18, position=1)], 2011: ...
+            pass
+
+        for i in range( len(list(ccMaggiore))-1): #--> lista oggetti Circuito [Circuit(circuitId=1, piazzamenti={2010: [Piazzamento(driverId=18, position=1)], 2011...:
+            listaNodi.append( (list(ccMaggiore)[i].name , list(ccMaggiore)[i+1].name, self._grafo[list(ccMaggiore)[i]][list(ccMaggiore)[i+1]]["weight"]) )
+
+        listaNodi.sort( key=lambda x: x[2], reverse=True )
+        return listaNodi

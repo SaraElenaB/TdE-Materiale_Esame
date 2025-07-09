@@ -7,3 +7,4 @@ if __name__ == "__main__":
     print( m.getDetailsGraph() )
 
 #https://networkx.org/documentation/stable/reference/algorithms/traversal.html
+

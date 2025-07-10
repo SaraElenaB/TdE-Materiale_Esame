@@ -38,7 +38,7 @@ for tupla in DAO.getAllEdgesWeigh(anno, self._mapIdPiloti):
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------
 #Lab14
-#grafo orientato
+#grafo semplice , orientato e pesato
 #NODI: ordini  effettuati nello store selezionato.
 query = """ select *
             from orders o 
@@ -116,10 +116,11 @@ for e in allEdges:
 #NODI: tutti retailer presenti nel database
 #a. utente seleziona --> nazione, anno A, tra il 2015 ed il 2018
 query = """ select *
-                    from go_retailers gr 
-                    where gr.Country = %s """
+            from go_retailers gr 
+            where gr.Country = %s """
 for row in cursor:
     ris.append(Retailer(**row))
+
 #ARCO: se e solo se i due retailer corrispondenti hanno
 #      -venduto dei prodotti in comune nel corso dell’anno A
 #      -peso --> numero di tali prodotti in comune
@@ -378,9 +379,16 @@ for t in DAO.getAllEdgesWeightMio(anno, shape):
 #       -Esempio. Se nodo A ha Longitudine -123.0 e nodo B ha longitudine -47 l’eventuale arco sarà diretto da A verso B ed avrà peso 76
         cursor = conn.cursor(dictionary=True)
         query = """select t1.id as id1, abs(t1.longitude) as l1, t2.id as id2, abs(t2.longitude) as d2
-                            from (select * from sighting s where YEAR(`datetime`) = %s and shape = %s) t1 ,
-                            (select * from sighting s where YEAR(`datetime`) = %s and shape = %s) t2
-                            where t1.state = t2.state and abs(t1.longitude) < abs(t2.longitude)
+                            from (select * 
+                                  from sighting s 
+                                  where YEAR(`datetime`) = %s 
+                                  and shape = %s) t1 ,
+                                  (select * 
+                                  from sighting s 
+                                  where YEAR(`datetime`) = %s 
+                                  and shape = %s) t2
+                            where t1.state = t2.state 
+                            and abs(t1.longitude) < abs(t2.longitude)
                             order by t1.longitude, t2.longitude"""
 
         cursor.execute(query, (year, shape, year, shape))
